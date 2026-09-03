@@ -1,0 +1,8 @@
+name = "pwa-traffic-survey"
+compatibility_date = "2024-09-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "traffic-survey-db"
+database_id = "0800a82d-a535-4e83-9e43-a95598711111"
