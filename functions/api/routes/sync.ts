@@ -21,6 +21,7 @@ interface SubmissionPayload {
     longitude?: number | null;
     accuracy?: number | null;
   };
+  photo_data?: string | null;
   answers: AnswerPayload[];
   device_info?: string;
 }
@@ -56,6 +57,7 @@ async function ensureD1Schema(db: Env['DB']) {
           latitude REAL,
           longitude REAL,
           accuracy REAL,
+          photo_data TEXT,
           synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           device_info TEXT
         );
@@ -83,6 +85,7 @@ async function ensureD1Schema(db: Env['DB']) {
     'ALTER TABLE responses ADD COLUMN latitude REAL',
     'ALTER TABLE responses ADD COLUMN longitude REAL',
     'ALTER TABLE responses ADD COLUMN accuracy REAL',
+    'ALTER TABLE responses ADD COLUMN photo_data TEXT',
   ];
 
   for (const query of alterQueries) {
@@ -123,15 +126,15 @@ syncRouter.post('/batch', async (c) => {
     const statements: D1PreparedStatement[] = [];
 
     for (const sub of submissions) {
-      // 2. Thêm bản ghi response kèm GPS & Duration (idempotent với INSERT OR IGNORE)
+      // 2. Thêm bản ghi response kèm GPS, Duration & Photo (idempotent với INSERT OR IGNORE)
       statements.push(
         db
           .prepare(
             `INSERT OR IGNORE INTO responses (
               id, survey_id, enumerator_id, client_created_at, completed_at, 
-              survey_duration_seconds, latitude, longitude, accuracy, synced_at, device_info
+              survey_duration_seconds, latitude, longitude, accuracy, photo_data, synced_at, device_info
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)`
           )
           .bind(
             sub.id,
@@ -143,6 +146,7 @@ syncRouter.post('/batch', async (c) => {
             sub.location?.latitude !== undefined ? sub.location.latitude : null,
             sub.location?.longitude !== undefined ? sub.location.longitude : null,
             sub.location?.accuracy !== undefined ? sub.location.accuracy : null,
+            sub.photo_data || null,
             sub.device_info || 'PWA Mobile Client'
           )
       );

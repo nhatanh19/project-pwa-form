@@ -62,6 +62,7 @@ export interface SurveySubmission {
   completed_at?: string;          // ISO string khi hoàn thành nộp bài
   survey_duration_seconds?: number; // Thời gian làm bài tính theo giây
   location?: LocationData;        // Tọa độ GPS thực địa
+  photo_data?: string | null;     // Ảnh chụp khu vực khảo sát (Base64 Data URL)
   answers: AnswerItem[];
   device_info?: string;
 }

@@ -11,6 +11,9 @@ import {
   MapPin,
   ExternalLink,
   Timer,
+  Camera,
+  ZoomIn,
+  X,
 } from 'lucide-react';
 import { OfflineSubmissionRecord } from '../../types/sync';
 import { Question } from '../../types/survey';
@@ -38,6 +41,11 @@ export const RecordsHistoryView: React.FC<RecordsHistoryViewProps> = ({
 }) => {
   const [filterMode, setFilterMode] = useState<'ALL' | 'PENDING' | 'SYNCED'>('ALL');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [activeLightboxPhoto, setActiveLightboxPhoto] = useState<{
+    url: string;
+    recordNum: number;
+    date: string;
+  } | null>(null);
 
   // Lấy toàn bộ danh sách phiếu từ IndexedDB (cả đã sync và chưa sync)
   const allSubmissions = useLiveQuery(() => db.offline_submissions.reverse().toArray(), []) || [];
@@ -249,6 +257,13 @@ export const RecordsHistoryView: React.FC<RecordsHistoryViewProps> = ({
                           Lưu trong máy
                         </span>
                       )}
+
+                      {record.photo_data && (
+                        <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 flex items-center space-x-1">
+                          <Camera className="h-3 w-3" />
+                          <span>Có ảnh</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Timestamp & Duration */}
@@ -315,6 +330,44 @@ export const RecordsHistoryView: React.FC<RecordsHistoryViewProps> = ({
                       </div>
                     )}
 
+                    {/* Survey Area Photo Preview if exists */}
+                    {record.photo_data && (
+                      <div className="pt-2">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          Ảnh thực địa khu vực khảo sát:
+                        </p>
+                        <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-video max-h-44 max-w-xs flex items-center justify-center">
+                          <img
+                            src={record.photo_data}
+                            alt="Ảnh hiện trường"
+                            className="w-full h-full object-cover cursor-pointer group-hover:scale-102 transition-transform duration-300"
+                            onClick={() =>
+                              setActiveLightboxPhoto({
+                                url: record.photo_data!,
+                                recordNum: allSubmissions.length - idx,
+                                date: new Date(record.client_created_at).toLocaleString('vi-VN'),
+                              })
+                            }
+                          />
+                          <div
+                            onClick={() =>
+                              setActiveLightboxPhoto({
+                                url: record.photo_data!,
+                                recordNum: allSubmissions.length - idx,
+                                date: new Date(record.client_created_at).toLocaleString('vi-VN'),
+                              })
+                            }
+                            className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                          >
+                            <span className="flex items-center space-x-1 text-white text-xs font-bold bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-xs">
+                              <ZoomIn className="h-3.5 w-3.5" />
+                              <span>Xem phóng to</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider pt-2">
                       Chi tiết câu trả lời:
                     </p>
@@ -345,6 +398,39 @@ export const RecordsHistoryView: React.FC<RecordsHistoryViewProps> = ({
           })
         )}
       </div>
+
+      {/* Full-screen Lightbox Modal for Records */}
+      {activeLightboxPhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm animate-fadeIn">
+          <div className="relative max-w-lg w-full flex flex-col max-h-[90vh]">
+            {/* Top Bar */}
+            <div className="flex items-center justify-between pb-3 text-white">
+              <div>
+                <h4 className="text-xs font-bold text-slate-200">
+                  Ảnh hiện trường — Phiếu #{activeLightboxPhoto.recordNum}
+                </h4>
+                <p className="text-[10px] text-slate-400">{activeLightboxPhoto.date}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveLightboxPhoto(null)}
+                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Photo Display */}
+            <div className="flex-1 overflow-hidden rounded-2xl bg-black flex items-center justify-center">
+              <img
+                src={activeLightboxPhoto.url}
+                alt={`Phiếu #${activeLightboxPhoto.recordNum}`}
+                className="max-h-[75vh] w-auto max-w-full object-contain rounded-xl"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS responses (
     latitude REAL,                             -- Tọa độ GPS Vĩ độ (Latitude)
     longitude REAL,                            -- Tọa độ GPS Kinh độ (Longitude)
     accuracy REAL,                             -- Độ chính xác GPS (bán kính mét)
+    photo_data TEXT,                           -- Ảnh chụp thực địa khu vực khảo sát (Base64 Data URL)
     synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Thời điểm dữ liệu được sync về server
     device_info TEXT,                          -- Thông tin thiết bị
     FOREIGN KEY (survey_id) REFERENCES surveys(id) ON DELETE CASCADE

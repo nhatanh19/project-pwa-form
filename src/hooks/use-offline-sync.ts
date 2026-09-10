@@ -51,6 +51,7 @@ export function useOfflineSync() {
           completed_at: item.completed_at,
           survey_duration_seconds: item.survey_duration_seconds,
           location: item.location,
+          photo_data: item.photo_data,
           answers: item.answers,
           device_info: item.device_info,
         })),

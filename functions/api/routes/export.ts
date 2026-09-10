@@ -35,8 +35,10 @@ exportRouter.get('/csv', async (c) => {
     const responsesRes = await db
       .prepare(
         `SELECT id, enumerator_id, client_created_at, completed_at, survey_duration_seconds, 
-                latitude, longitude, accuracy, synced_at, device_info 
-         FROM responses WHERE survey_id = ? ORDER BY client_created_at DESC`
+                latitude, longitude, accuracy, photo_data, synced_at, device_info 
+         FROM responses 
+         WHERE survey_id = ? 
+         ORDER BY client_created_at DESC`
       )
       .bind(surveyId)
       .all<{
@@ -48,6 +50,7 @@ exportRouter.get('/csv', async (c) => {
         latitude: number | null;
         longitude: number | null;
         accuracy: number | null;
+        photo_data: string | null;
         synced_at: string;
         device_info: string | null;
       }>();
@@ -95,6 +98,7 @@ exportRouter.get('/csv', async (c) => {
       'Kinh độ (Longitude)',
       'Độ chính xác GPS (mét)',
       'Vị trí Google Maps',
+      'Ảnh khu vực khảo sát',
       'Thời điểm đồng bộ D1',
       'Thiết bị',
     ];
@@ -119,6 +123,7 @@ exportRouter.get('/csv', async (c) => {
         resp.longitude !== null ? String(resp.longitude) : '',
         resp.accuracy !== null ? `±${resp.accuracy}m` : '',
         mapsUrl,
+        resp.photo_data ? 'Có ảnh minh chứng' : 'Không chụp',
         resp.synced_at,
         resp.device_info || '',
       ];

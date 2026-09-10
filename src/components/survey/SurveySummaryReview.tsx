@@ -4,10 +4,13 @@ import { Question, AnswerItem } from '../../types/survey';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { formatNumber, formatVND } from '../../lib/utils';
+import { SurveyAreaCamera } from './SurveyAreaCamera';
 
 interface SurveySummaryReviewProps {
   questions: Question[];
   answersState: Record<string, AnswerItem>;
+  photoData?: string | null;
+  onPhotoCaptured?: (dataUrl: string | null) => void;
   onEditStep: (questionIndex: number) => void;
   onSubmit: () => void;
   isSubmitting: boolean;
@@ -16,6 +19,8 @@ interface SurveySummaryReviewProps {
 export const SurveySummaryReview: React.FC<SurveySummaryReviewProps> = ({
   questions,
   answersState,
+  photoData = null,
+  onPhotoCaptured,
   onEditStep,
   onSubmit,
   isSubmitting,
@@ -126,6 +131,15 @@ export const SurveySummaryReview: React.FC<SurveySummaryReviewProps> = ({
           </Card>
         ))}
       </div>
+
+      {/* Survey Area Photo Section */}
+      {onPhotoCaptured && (
+        <SurveyAreaCamera
+          photoData={photoData}
+          onPhotoCaptured={onPhotoCaptured}
+          isOptional={true}
+        />
+      )}
 
       {/* Submit Action Box */}
       <div className="rounded-3xl bg-slate-900 p-5 text-white space-y-3 shadow-lg shadow-slate-900/15">

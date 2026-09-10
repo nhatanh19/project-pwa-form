@@ -50,6 +50,9 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
   // State lưu trữ các câu trả lời
   const [answersState, setAnswersState] = useState<Record<string, AnswerItem>>({});
 
+  // State lưu trữ ảnh chụp khu vực khảo sát (Base64 Data URL)
+  const [photoData, setPhotoData] = useState<string | null>(null);
+
   const stepperRef = useRef<HTMLDivElement>(null);
 
   // Tự động khởi tạo giá trị mặc định cho từng câu hỏi khi questions thay đổi
@@ -183,6 +186,7 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
         accuracy: location.accuracy,
         error: location.error,
       },
+      photo_data: photoData,
       answers: answersList,
       device_info: `${navigator.userAgent} (PWA Mobile)`,
     };
@@ -209,6 +213,7 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
     setIsCompleted(false);
     setLastSyncResult(null);
     setValidationError(null);
+    setPhotoData(null);
     setSurveyStartTime(Date.now());
     requestLocation(); // Làm mới vị trí GPS cho lượt khảo sát mới
 
@@ -401,6 +406,8 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
         <SurveySummaryReview
           questions={questions}
           answersState={answersState}
+          photoData={photoData}
+          onPhotoCaptured={setPhotoData}
           onEditStep={handleJumpToStep}
           onSubmit={handleSubmit}
           isSubmitting={isSubmitting}

@@ -36,6 +36,7 @@ export function exportSubmissionsToCSV(
     'Kinh độ (Longitude)',
     'Độ chính xác GPS (mét)',
     'Vị trí Google Maps',
+    'Ảnh khu vực khảo sát',
     'Trạng thái đồng bộ',
     'Thông tin thiết bị',
   ];
@@ -72,6 +73,7 @@ export function exportSubmissionsToCSV(
       lng !== null ? String(lng) : 'Không có',
       acc !== null ? `±${acc}m` : 'Không có',
       mapsUrl,
+      sub.photo_data ? 'Có ảnh minh chứng' : 'Không chụp',
       isSynced ? 'Đã đồng bộ máy chủ' : 'Lưu tạm trong máy (Chờ gửi)',
       sub.device_info || 'PWA Mobile',
     ];
