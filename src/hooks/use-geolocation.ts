@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import { LocationData } from '../types/survey';
 
 export function useGeolocation(autoRequest = true) {
@@ -9,23 +11,68 @@ export function useGeolocation(autoRequest = true) {
     error: null,
   });
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isAvailable, setIsAvailable] = useState<boolean>(
-    typeof navigator !== 'undefined' && 'geolocation' in navigator
-  );
+  const [isAvailable, setIsAvailable] = useState<boolean>(true);
 
-  const requestLocation = useCallback(() => {
+  const requestLocation = useCallback(async () => {
+    setIsLoading(true);
+
+    // 1. Trường hợp chạy trên nền tảng Native Mobile (Capacitor Android/iOS)
+    if (Capacitor.isNativePlatform()) {
+      try {
+        let perm = await Geolocation.checkPermissions();
+        if (perm.location !== 'granted') {
+          perm = await Geolocation.requestPermissions();
+        }
+
+        if (perm.location === 'denied') {
+          setLocation({
+            latitude: null,
+            longitude: null,
+            accuracy: null,
+            error: 'Quyền truy cập vị trí GPS bị từ chối trong Cài đặt máy',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 5000,
+        });
+
+        setLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy ? Math.round(position.coords.accuracy) : null,
+          error: null,
+        });
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : 'Không tìm thấy tín hiệu vệ tinh GPS';
+        setLocation({
+          latitude: null,
+          longitude: null,
+          accuracy: null,
+          error: errorMsg,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
+    // 2. Trường hợp fallback chạy trên trình duyệt web (Dev mode)
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
       setIsAvailable(false);
       setLocation({
         latitude: null,
         longitude: null,
         accuracy: null,
-        error: 'Trình duyệt không hỗ trợ Geolocation GPS',
+        error: 'Thiết bị không hỗ trợ Geolocation GPS',
       });
+      setIsLoading(false);
       return;
     }
-
-    setIsLoading(true);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -58,7 +105,7 @@ export function useGeolocation(autoRequest = true) {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 60000,
+        maximumAge: 5000,
       }
     );
   }, []);

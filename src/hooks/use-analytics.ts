@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { db } from '../db/dexie';
 import { AnalyticsSummaryData } from '../types/analytics';
+import { apiUrl } from '../lib/api-config';
 
 const FALLBACK_ANALYTICS: AnalyticsSummaryData = {
   kpis: {
@@ -57,9 +59,9 @@ export function useAnalytics() {
     }
 
     // 2. Nếu online, gọi backend
-    if (navigator.onLine) {
+    if (navigator.onLine || Capacitor.isNativePlatform()) {
       try {
-        const res = await fetch('/api/analytics/summary');
+        const res = await fetch(apiUrl('/api/analytics/summary'));
         if (res.ok) {
           const json = (await res.json()) as { success: boolean; data: AnalyticsSummaryData };
           if (json.success && json.data) {

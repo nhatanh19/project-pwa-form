@@ -13,6 +13,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { db, DEFAULT_SURVEY } from '../../db/dexie';
+import { apiUrl } from '../../lib/api-config';
 
 interface QuestionManagerModalProps {
   isOpen: boolean;
@@ -124,7 +125,7 @@ export const QuestionManagerModal: React.FC<QuestionManagerModalProps> = ({
       // 2. Gửi lên Server D1 nếu Online
       if (isOnline) {
         try {
-          const res = await fetch('/api/questions', {
+          const res = await fetch(apiUrl('/api/questions'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -183,7 +184,7 @@ export const QuestionManagerModal: React.FC<QuestionManagerModalProps> = ({
       // 2. Xóa trên server nếu Online
       if (isOnline) {
         try {
-          await fetch(`/api/questions/${qId}`, { method: 'DELETE' });
+          await fetch(apiUrl(`/api/questions/${qId}`), { method: 'DELETE' });
         } catch (serverErr) {
           console.warn('Không thể gửi lệnh xóa lên server:', serverErr);
         }

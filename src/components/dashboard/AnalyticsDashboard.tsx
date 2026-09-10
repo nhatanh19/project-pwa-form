@@ -2,6 +2,7 @@ import React from 'react';
 import { RefreshCw, BarChart2, ShieldAlert, Download } from 'lucide-react';
 import { AnalyticsSummaryData } from '../../types/analytics';
 import { Button } from '../ui/button';
+import { apiUrl } from '../../lib/api-config';
 import { KpiCards } from './KpiCards';
 import { VehiclePieChart } from './VehiclePieChart';
 import { DistanceBarChart } from './DistanceBarChart';
@@ -22,7 +23,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   onRefresh,
 }) => {
   const handleServerExportCSV = () => {
-    window.open('/api/export/csv', '_blank');
+    window.open(apiUrl('/api/export/csv'), '_blank');
   };
 
   return (

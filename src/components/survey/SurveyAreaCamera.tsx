@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Image as ImageIcon, Trash2, RefreshCw, ZoomIn, X, CheckCircle2 } from 'lucide-react';
+import { Camera as CameraIcon, Image as ImageIcon, Trash2, RefreshCw, ZoomIn, X, CheckCircle2 } from 'lucide-react';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { compressImageFile } from '../../lib/image-compressor';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -18,20 +20,65 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [isCompressing, setIsCompressing] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [photoSizeKb, setPhotoSizeKb] = useState<number | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Chụp ảnh bằng @capacitor/camera (Native Mobile) hoặc fallback Web Input
+  const handleCapturePhoto = async (sourceType: 'camera' | 'photos') => {
+    setErrorMsg(null);
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        setIsProcessing(true);
+        const image = await Camera.getPhoto({
+          quality: 75,
+          allowEditing: false,
+          resultType: CameraResultType.Base64,
+          source: sourceType === 'camera' ? CameraSource.Camera : CameraSource.Photos,
+          width: 1280,
+          height: 1280,
+          promptLabelHeader: 'Chọn ảnh khu vực khảo sát',
+          promptLabelPhoto: 'Chọn từ thư viện ảnh',
+          promptLabelPicture: 'Chụp ảnh mới',
+        });
+
+        if (image.base64String) {
+          const format = image.format || 'jpeg';
+          const dataUrl = `data:image/${format};base64,${image.base64String}`;
+          const sizeKb = Math.round((image.base64String.length * 3) / 4 / 1024);
+          setPhotoSizeKb(sizeKb);
+          onPhotoCaptured(dataUrl);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Người dùng hủy hoặc không thể chụp ảnh';
+        // Người dùng ấn hủy chọn ảnh trên Android thì bỏ qua không báo lỗi
+        if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('user cancelled')) {
+          setErrorMsg(msg);
+        }
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      // Fallback trên trình duyệt máy tính
+      if (sourceType === 'camera') {
+        cameraInputRef.current?.click();
+      } else {
+        galleryInputRef.current?.click();
+      }
+    }
+  };
+
+  // Fallback web file change
+  const handleWebFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setIsCompressing(true);
+    setIsProcessing(true);
     setErrorMsg(null);
 
     try {
-      // Tự động nén ảnh client-side về max 1280px, quality 0.75
       const result = await compressImageFile(file, {
         maxWidth: 1280,
         maxHeight: 1280,
@@ -44,8 +91,7 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
       const msg = err instanceof Error ? err.message : 'Không thể nén ảnh chụp';
       setErrorMsg(msg);
     } finally {
-      setIsCompressing(false);
-      // Reset input value để có thể chọn lại cùng 1 file nếu muốn
+      setIsProcessing(false);
       e.target.value = '';
     }
   };
@@ -58,20 +104,20 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
 
   return (
     <div className="space-y-2">
-      {/* Hidden file inputs */}
+      {/* Hidden file inputs for Web fallback */}
       <input
         ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={handleFileChange}
+        onChange={handleWebFileChange}
         className="hidden"
       />
       <input
         ref={galleryInputRef}
         type="file"
         accept="image/*"
-        onChange={handleFileChange}
+        onChange={handleWebFileChange}
         className="hidden"
       />
 
@@ -81,7 +127,7 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <Camera className="h-4 w-4" />
+                <CameraIcon className="h-4 w-4" />
               </div>
               <div>
                 <h4 className="text-xs sm:text-sm font-black text-slate-900 leading-tight">
@@ -108,16 +154,16 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
             </div>
           )}
 
-          {/* Compressing State */}
-          {isCompressing && (
+          {/* Processing State */}
+          {isProcessing && (
             <div className="flex items-center justify-center space-x-2 py-6 text-xs text-blue-700 font-bold bg-blue-50/60 rounded-xl border border-blue-100">
               <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
-              <span>Đang tối ưu & nén dung lượng ảnh...</span>
+              <span>Đang xử lý & nén ảnh camera native...</span>
             </div>
           )}
 
           {/* Photo Preview when exists */}
-          {!isCompressing && photoData && (
+          {!isProcessing && photoData && (
             <div className="space-y-2">
               <div className="relative group overflow-hidden rounded-xl border border-slate-200 bg-slate-950 aspect-video max-h-48 flex items-center justify-center">
                 <img
@@ -163,7 +209,7 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => cameraInputRef.current?.click()}
+                  onClick={() => handleCapturePhoto('camera')}
                   className="h-8 flex-1 rounded-xl text-xs font-bold border-slate-300 gap-1"
                 >
                   <RefreshCw className="h-3.5 w-3.5 text-amber-600" />
@@ -185,23 +231,23 @@ export const SurveyAreaCamera: React.FC<SurveyAreaCameraProps> = ({
           )}
 
           {/* Empty State: Prompt to take or pick photo */}
-          {!isCompressing && !photoData && (
+          {!isProcessing && !photoData && (
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => cameraInputRef.current?.click()}
-                className="h-11 rounded-xl border-blue-200 bg-blue-50/50 hover:bg-blue-100/70 text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs"
+                onClick={() => handleCapturePhoto('camera')}
+                className="h-11 rounded-xl border-blue-200 bg-blue-50/50 hover:bg-blue-100/70 text-blue-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-98 transition-transform"
               >
-                <Camera className="h-4 w-4 text-blue-600" />
-                <span>Chụp bằng máy ảnh</span>
+                <CameraIcon className="h-4 w-4 text-blue-600" />
+                <span>Chụp bằng Camera</span>
               </Button>
 
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => galleryInputRef.current?.click()}
-                className="h-11 rounded-xl border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs"
+                onClick={() => handleCapturePhoto('photos')}
+                className="h-11 rounded-xl border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-98 transition-transform"
               >
                 <ImageIcon className="h-4 w-4 text-slate-500" />
                 <span>Chọn từ thư viện</span>

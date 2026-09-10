@@ -19,6 +19,7 @@ import { QuestionCard } from './QuestionCard';
 import { DynamicQuestionRenderer } from './DynamicQuestionRenderer';
 import { SurveySummaryReview } from './SurveySummaryReview';
 import { generateUUID, cn } from '../../lib/utils';
+import { triggerHaptic } from '../../lib/native-haptics';
 import { Card, CardContent } from '../ui/card';
 
 interface DynamicSurveyWizardProps {
@@ -149,18 +150,24 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
   };
 
   const handleNext = () => {
-    if (!validateCurrentStep()) return;
+    if (!validateCurrentStep()) {
+      triggerHaptic.warning();
+      return;
+    }
+    triggerHaptic.light();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setCurrentStep((prev) => Math.min(totalQuestions, prev + 1));
   };
 
   const handlePrev = () => {
+    triggerHaptic.light();
     setValidationError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setCurrentStep((prev) => Math.max(0, prev - 1));
   };
 
   const handleJumpToStep = (stepIndex: number) => {
+    triggerHaptic.selection();
     setValidationError(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
     setCurrentStep(stepIndex);
@@ -188,13 +195,14 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
       },
       photo_data: photoData,
       answers: answersList,
-      device_info: `${navigator.userAgent} (PWA Mobile)`,
+      device_info: `${navigator.userAgent} (Capacitor Native)`,
     };
 
     const result = await onSaveSubmission(submission);
     setLastSyncResult(result);
     setIsSubmitting(false);
     setIsCompleted(true);
+    triggerHaptic.success();
 
     try {
       confetti({
@@ -209,6 +217,7 @@ export const DynamicSurveyWizard: React.FC<DynamicSurveyWizardProps> = ({
 
   // Khởi tạo lại form cho người khảo sát tiếp theo
   const handleReset = () => {
+    triggerHaptic.medium();
     setCurrentStep(0);
     setIsCompleted(false);
     setLastSyncResult(null);

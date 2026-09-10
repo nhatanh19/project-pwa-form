@@ -1,8 +1,32 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Network } from '@capacitor/network';
+import { Capacitor } from '@capacitor/core';
 import { db } from '../db/dexie';
 import { SurveySubmission } from '../types/survey';
 import { OfflineSubmissionRecord, BatchSyncResponse } from '../types/sync';
+import { apiUrl } from '../lib/api-config';
+
+const HEADS_UP_CHANNEL_ID = 'sync_alerts_heads_up';
+
+async function ensureNotificationChannel() {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await LocalNotifications.createChannel({
+      id: HEADS_UP_CHANNEL_ID,
+      name: 'Thông Báo Đồng Bộ (Nổi)',
+      description: 'Hiển thị thông báo nổi trên màn hình khi hoàn tất đồng bộ phiếu khảo sát',
+      importance: 5, // 5 = IMPORTANCE_MAX / HIGH (bắt buộc cho thông báo nổi Heads-up banner)
+      visibility: 1, // 1 = VISIBILITY_PUBLIC
+      vibration: true,
+      lights: true,
+      lightColor: '#2563eb',
+    });
+  } catch (err) {
+    console.warn('Không thể khởi tạo Notification Channel:', err);
+  }
+}
 
 export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState<boolean>(
@@ -26,7 +50,7 @@ export function useOfflineSync() {
   // 1. Hàm thực hiện đẩy dữ liệu đồng bộ (Batch Sync)
   const triggerSync = useCallback(async (): Promise<{ success: boolean; count: number }> => {
     if (isSyncingRef.current) return { success: false, count: 0 };
-    if (!navigator.onLine) {
+    if (!navigator.onLine && !Capacitor.isNativePlatform()) {
       return { success: false, count: 0 };
     }
 
@@ -57,7 +81,7 @@ export function useOfflineSync() {
         })),
       };
 
-      const response = await fetch('/api/sync/batch', {
+      const response = await fetch(apiUrl('/api/sync/batch'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,6 +114,30 @@ export function useOfflineSync() {
         setLastSyncedAt(now);
         localStorage.setItem('last_synced_at', now);
         setSyncSuccessToast({ count: result.synced_count, timestamp: Date.now() });
+
+        // Phát thông báo Push / Local Alert khi đồng bộ thành công lên máy chủ
+        if (Capacitor.isNativePlatform() && result.synced_count > 0) {
+          try {
+            await ensureNotificationChannel();
+            const perm = await LocalNotifications.checkPermissions();
+            if (perm.display === 'granted') {
+              await LocalNotifications.schedule({
+                notifications: [
+                  {
+                    id: Math.floor(Math.random() * 100000),
+                    title: '🔔 Khảo Sát Thực Địa',
+                    body: `Đã đồng bộ thành công ${result.synced_count} phiếu khảo sát lên hệ thống máy chủ!`,
+                    channelId: HEADS_UP_CHANNEL_ID,
+                    foreground: true,
+                    schedule: { at: new Date(Date.now() + 100) },
+                  },
+                ],
+              });
+            }
+          } catch (notifErr) {
+            console.warn('Không thể gửi native notification:', notifErr);
+          }
+        }
 
         return { success: true, count: result.synced_count };
       } else {
@@ -142,11 +190,13 @@ export function useOfflineSync() {
     [triggerSync]
   );
 
-  // 3. Lắng nghe trạng thái Online / Offline của trình duyệt
+  // 3. Lắng nghe trạng thái Online / Offline (Native Android + Web)
   useEffect(() => {
+    let isSubscribed = true;
+    let removeNetworkListener: (() => void) | null = null;
+
     const handleOnline = () => {
       setIsOnline(true);
-      // TỰ ĐỘNG TRIGGER SYNC KHI CÓ MẠNG TRỞ LẠI
       triggerSync();
     };
 
@@ -154,24 +204,58 @@ export function useOfflineSync() {
       setIsOnline(false);
     };
 
+    // Fallback cho Web browser
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Native Android Network Listener & Notifications
+    if (Capacitor.isNativePlatform()) {
+      // 1. Kiểm tra trạng thái mạng thực tế từ hệ thống Android
+      Network.getStatus().then((status) => {
+        if (!isSubscribed) return;
+        setIsOnline(status.connected);
+        if (status.connected) {
+          triggerSync();
+        }
+      });
+
+      // 2. Lắng nghe sự kiện bật/tắt Wi-Fi, 4G từ ConnectivityManager
+      Network.addListener('networkStatusChange', (status) => {
+        if (!isSubscribed) return;
+        setIsOnline(status.connected);
+        if (status.connected) {
+          triggerSync();
+        }
+      }).then((handle) => {
+        removeNetworkListener = () => handle.remove();
+      });
+
+      // 3. Khởi tạo Notification Channel ưu tiên cao (Heads-up) & Xin quyền Notification Android 13+
+      ensureNotificationChannel();
+      LocalNotifications.checkPermissions().then((status) => {
+        if (status.display !== 'granted') {
+          LocalNotifications.requestPermissions();
+        }
+      });
+    }
+
     // Kích hoạt sync khi component mount nếu có kết nối
-    if (navigator.onLine) {
+    if (navigator.onLine || Capacitor.isNativePlatform()) {
       triggerSync();
     }
 
-    // Định kỳ kiểm tra và đẩy lại hàng đợi mỗi 30 giây nếu online
+    // Định kỳ kiểm tra và đẩy lại hàng đợi mỗi 30 giây
     const interval = setInterval(() => {
-      if (navigator.onLine) {
-        triggerSync();
-      }
+      triggerSync();
     }, 30000);
 
     return () => {
+      isSubscribed = false;
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (removeNetworkListener) {
+        removeNetworkListener();
+      }
       clearInterval(interval);
     };
   }, [triggerSync]);

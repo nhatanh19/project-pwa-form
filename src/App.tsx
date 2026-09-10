@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
+import { initCapgoUpdater } from './lib/capgo-updater';
 import { useOfflineSync } from './hooks/use-offline-sync';
 import { useSurveyQuestions } from './hooks/use-survey-questions';
 import { useAnalytics } from './hooks/use-analytics';
@@ -15,6 +18,19 @@ import { QuestionManagerModal } from './components/admin/QuestionManagerModal';
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('survey');
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState<boolean>(false);
+
+  // Khởi tạo StatusBar và Capgo Live Updates (OTA) trên môi trường Native Android
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        StatusBar.setStyle({ style: Style.Dark });
+        StatusBar.setBackgroundColor({ color: '#0f172a' });
+      } catch (err) {
+        console.warn('Status bar configuration error:', err);
+      }
+      initCapgoUpdater();
+    }
+  }, []);
 
   // 1. Offline Sync Engine
   const {
@@ -72,8 +88,8 @@ export function App() {
 
       {/* 3. Main Content Area */}
       <main className="flex-1 px-4 max-w-lg mx-auto w-full">
-        {/* PWA Install Banner */}
-        {isInstallable && <PwaInstallBanner onInstall={installApp} />}
+        {/* PWA Install Banner (Ẩn trên Android Native App) */}
+        {!Capacitor.isNativePlatform() && isInstallable && <PwaInstallBanner onInstall={installApp} />}
 
         {/* Tab 1: Khảo sát động */}
         {activeTab === 'survey' && (

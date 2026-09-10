@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { Capacitor } from '@capacitor/core';
 import { db, DEFAULT_SURVEY, ensureDefaultSurveySeeded } from '../db/dexie';
 import { Survey, Question } from '../types/survey';
+import { apiUrl } from '../lib/api-config';
 
 export function useSurveyQuestions(surveyId = 'survey-traffic-2026') {
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -17,10 +19,10 @@ export function useSurveyQuestions(surveyId = 'survey-traffic-2026') {
       await ensureDefaultSurveySeeded();
 
       // 2. Nếu online, fetch trực tiếp từ server với cache-busting timestamp
-      if (navigator.onLine) {
+      if (navigator.onLine || Capacitor.isNativePlatform()) {
         try {
           const timestamp = Date.now();
-          const res = await fetch(`/api/questions?survey_id=${surveyId}&_t=${timestamp}`, {
+          const res = await fetch(apiUrl(`/api/questions?survey_id=${surveyId}&_t=${timestamp}`), {
             cache: 'no-store',
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
